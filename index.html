@@ -25,7 +25,7 @@
     <textarea id="debug" readonly></textarea>
 
     <script>
-        // REPLACE THIS WITH YOUR GENERATED PUBLIC KEY
+        // *** YOUR VAPID PUBLIC KEY IS NOW EMBEDDED HERE ***
         const VAPID_PUBLIC_KEY = 'BMbM2p0Wz44PSsQoV72wE3bA9gXj2dSomM2A7MJnbx-qHzKveZ9w_iQCQeiJVSPwBDJ27g8Kt5UvMQZhuxWC79o'; 
 
         const statusDiv = document.getElementById('status');
@@ -52,7 +52,7 @@
             }
 
             try {
-                // Ensure you have a sw.js file in your public folder
+                // Register the Service Worker
                 const swReg = await navigator.serviceWorker.register('/sw.js');
                 statusDiv.textContent = "Service Worker Registered. Subscribing...";
 
@@ -69,7 +69,7 @@
 
             } catch (err) {
                 console.error(err);
-                statusDiv.textContent = "Error: " + err.message;
+                statusDiv.textContent = "Error: " + err.message + ". Check your VAPID Public Key and HTTPS status.";
             }
         });
 
@@ -79,22 +79,21 @@
             statusDiv.textContent = "Sending request to Cloudflare Pages Function...";
 
             try {
-                // Cloudflare Pages Functions are typically served from the root if placed in /functions
-                // So functions/send-push.js becomes /send-push
+                // Functions are accessed via /filename without extension
                 const response = await fetch('/send-push', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         subscription: currentSubscription,
                         payload: {
-                            title: "Hello from Cloudflare!",
-                            body: "This message came from the Edge. Time: " + new Date().toLocaleTimeString()
+                            title: "Hello from Cloudflare Edge!",
+                            body: "This message was sent at " + new Date().toLocaleTimeString()
                         }
                     })
                 });
 
                 const result = await response.json();
-                statusDiv.textContent = "Server Response: " + JSON.stringify(result);
+                statusDiv.textContent = `Server Response (${response.status}): ` + JSON.stringify(result);
             } catch (err) {
                 statusDiv.textContent = "Fetch Error: " + err.message;
             }
