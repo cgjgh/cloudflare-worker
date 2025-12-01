@@ -1,0 +1,8 @@
+{
+  "name": "cloudflare-push-notifications",
+  "version": "1.0.0",
+  "description": "Web push notification sender using Cloudflare Pages Functions.",
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}
