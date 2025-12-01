@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudflare Push Tester</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+        button { padding: 10px 20px; cursor: pointer; background: #f38020; color: white; border: none; border-radius: 4px; font-size: 16px; margin-right: 10px;}
+        button:disabled { background: #ccc; }
+        textarea { width: 100%; height: 150px; margin-top: 1rem; font-family: monospace; }
+        .status { margin-top: 1rem; padding: 1rem; background: #f0f0f0; border-radius: 4px; }
+        .cf-badge { background: #f38020; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;}
+    </style>
+</head>
+<body>
+    <h1>Push Notification Tester <span class="cf-badge">Cloudflare</span></h1>
+    
+    <p>1. <button id="subBtn">Subscribe to Push</button></p>
+    <p>2. <button id="sendBtn" disabled>Trigger Pages Function</button></p>
+
+    <div id="status" class="status">Waiting for action...</div>
+
+    <h3>Debug Info (Subscription Object)</h3>
+    <textarea id="debug" readonly></textarea>
+
+    <script>
+        // REPLACE THIS WITH YOUR GENERATED PUBLIC KEY
+        const VAPID_PUBLIC_KEY = 'BMbM2p0Wz44PSsQoV72wE3bA9gXj2dSomM2A7MJnbx-qHzKveZ9w_iQCQeiJVSPwBDJ27g8Kt5UvMQZhuxWC79o'; 
+
+        const statusDiv = document.getElementById('status');
+        const debugArea = document.getElementById('debug');
+        const subBtn = document.getElementById('subBtn');
+        const sendBtn = document.getElementById('sendBtn');
+        let currentSubscription = null;
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        subBtn.addEventListener('click', async () => {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                statusDiv.textContent = "Push API not supported in this browser.";
+                return;
+            }
+
+            try {
+                // Ensure you have a sw.js file in your public folder
+                const swReg = await navigator.serviceWorker.register('/sw.js');
+                statusDiv.textContent = "Service Worker Registered. Subscribing...";
+
+                const subscription = await swReg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                });
+
+                currentSubscription = subscription;
+                debugArea.value = JSON.stringify(subscription, null, 2);
+                statusDiv.textContent = "Subscribed! Ready to send.";
+                sendBtn.disabled = false;
+                subBtn.disabled = true;
+
+            } catch (err) {
+                console.error(err);
+                statusDiv.textContent = "Error: " + err.message;
+            }
+        });
+
+        sendBtn.addEventListener('click', async () => {
+            if(!currentSubscription) return;
+
+            statusDiv.textContent = "Sending request to Cloudflare Pages Function...";
+
+            try {
+                // Cloudflare Pages Functions are typically served from the root if placed in /functions
+                // So functions/send-push.js becomes /send-push
+                const response = await fetch('/send-push', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        subscription: currentSubscription,
+                        payload: {
+                            title: "Hello from Cloudflare!",
+                            body: "This message came from the Edge. Time: " + new Date().toLocaleTimeString()
+                        }
+                    })
+                });
+
+                const result = await response.json();
+                statusDiv.textContent = "Server Response: " + JSON.stringify(result);
+            } catch (err) {
+                statusDiv.textContent = "Fetch Error: " + err.message;
+            }
+        });
+        
+        if (!('serviceWorker' in navigator)) {
+           statusDiv.textContent = "Service Workers not supported in this browser.";
+           subBtn.disabled = true;
+        }
+    </script>
+</body>
+</html>
